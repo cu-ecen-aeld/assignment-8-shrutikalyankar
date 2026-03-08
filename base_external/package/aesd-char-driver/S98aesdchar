@@ -1,0 +1,41 @@
+#!/bin/sh
+
+DRIVER_NAME=aesdchar
+DRIVER_PATH=/lib/modules/$(uname -r)/extra/${DRIVER_NAME}.ko
+DEVICE=/dev/aesdchar
+MAJOR=0
+
+case "$1" in
+    start)
+        echo "Loading ${DRIVER_NAME} driver"
+        insmod ${DRIVER_PATH} || true
+
+        # Get the dynamically assigned major number
+        MAJOR=$(awk "\$2==\"${DRIVER_NAME}\" {print \$1}" /proc/devices)
+
+        if [ -n "$MAJOR" ]; then
+            rm -f ${DEVICE}
+            mknod ${DEVICE} c ${MAJOR} 0
+            chmod 666 ${DEVICE}
+            echo "${DRIVER_NAME} device created at ${DEVICE} with major ${MAJOR}"
+        else
+            echo "ERROR: Could not find major number for ${DRIVER_NAME}"
+            exit 1
+        fi
+        ;;
+    stop)
+        echo "Unloading ${DRIVER_NAME} driver"
+        rm -f ${DEVICE}
+        rmmod ${DRIVER_NAME} || true
+        ;;
+    restart)
+        $0 stop
+        $0 start
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart}"
+        exit 1
+        ;;
+esac
+
+exit 0
